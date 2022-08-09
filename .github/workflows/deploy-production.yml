@@ -1,4 +1,4 @@
-name: Deploy Preproduction
+name: Deploy Production
 
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ secrets.PREPROD_AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           role-duration-seconds: 900
 
       - name: Install latest AWS CLI
@@ -37,7 +37,7 @@ jobs:
       - name: Login to Amazon ECR
         run: aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${REPOSITORY_BASE_PATH}
         env:
-          REPOSITORY_BASE_PATH: ${{ secrets.PREPROD_PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}
+          REPOSITORY_BASE_PATH: ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}
 
       - name: Log in to GitHub registry
         uses: docker/login-action@v1
@@ -55,7 +55,7 @@ jobs:
           context: base
           push: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/future' }}
           tags: |
-            ${{ secrets.PREPROD_PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
+            ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
             ghcr.io/spacelift-io/runner-ansible-base:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
 
   aws:
@@ -73,7 +73,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ secrets.PREPROD_AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           role-duration-seconds: 900
 
       - name: Install latest AWS CLI
@@ -83,7 +83,7 @@ jobs:
       - name: Login to Amazon ECR
         run: aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${REPOSITORY_BASE_PATH}
         env:
-          REPOSITORY_BASE_PATH: ${{ secrets.PREPROD_PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}
+          REPOSITORY_BASE_PATH: ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}
 
       - name: Log in to GitHub registry
         uses: docker/login-action@v1
@@ -101,5 +101,5 @@ jobs:
           context: aws
           push: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/future' }}
           tags: |
-            ${{ secrets.PREPROD_PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}/runner-ansible-aws:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
+            ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}/runner-ansible-aws:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
             ghcr.io/spacelift-io/runner-ansible-aws:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}

@@ -26,6 +26,7 @@ jobs:
             ghcr.io/spacelift-io/runner-ansible-base:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
 
   aws:
+    if: false # skip aws build until we push base image to the repo
     name: Build and deploy the alpine base AWS image
     runs-on: ubuntu-latest
     steps:
