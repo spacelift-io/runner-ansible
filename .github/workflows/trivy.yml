@@ -9,7 +9,7 @@ on:
     - cron: "19 7 * * 0"
 
 jobs:
-  build:
+  base:
     name: Analyze
     runs-on: ubuntu-latest
 
@@ -19,7 +19,33 @@ jobs:
 
       - name: Build an image from Dockerfile
         run: |
-          docker build -t spacelift:${{ github.sha }} .
+          docker build -t spacelift:${{ github.sha }} base
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "spacelift:${{ github.sha }}"
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: "trivy-results.sarif"
+
+  aws:
+    name: Analyze
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Build an image from Dockerfile
+        run: |
+          docker build --build-arg REPOSITORY_BASE_PATH=${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }} -t spacelift:${{ github.sha }} aws
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
