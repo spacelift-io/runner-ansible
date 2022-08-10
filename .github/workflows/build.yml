@@ -22,8 +22,8 @@ jobs:
           context: base
           push: false
           tags: |
-            ${{ secrets.PREPROD_PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}/runner-ansible-base:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
-            ghcr.io/spacelift-io/runner-ansible-base:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
+            ${{ secrets.PREPROD_PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}/runner-ansible:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
+            ghcr.io/spacelift-io/runner-ansible:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
 
   aws:
     if: false # skip aws build until we push base image to the repo
@@ -45,4 +45,3 @@ jobs:
           push: false
           tags: |
             ${{ secrets.PREPROD_PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}/runner-ansible-aws:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
-            ghcr.io/spacelift-io/runner-ansible-aws:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
