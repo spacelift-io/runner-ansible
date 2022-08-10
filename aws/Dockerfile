@@ -1,6 +1,5 @@
-ARG RELEASE_VERSION
 ARG REPOSITORY_BASE_PATH
 
-FROM ${REPOSITORY_BASE_PATH}/runner-ansible-base-alpine:${RELEASE_VERSION}
+FROM ${REPOSITORY_BASE_PATH}:latest
 
 RUN pip install boto3 botocore
