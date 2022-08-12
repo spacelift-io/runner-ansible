@@ -8,3 +8,5 @@ RUN apk -U upgrade && apk add --no-cache \
     py3-pip
 
 RUN pip install ansible-runner
+
+USER spacelift
