@@ -2,47 +2,55 @@ name: Build
 
 on:
   push:
-    branches-ignore:
-      - main
-      - future
+    branches-ignore: [main, future]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
-  base:
-    name: Build and deploy the base Alpine image
+  build:
     runs-on: ubuntu-latest
+    name: 👷 ${{ matrix.folder }} image on ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2 # ECR has pretty aggressive rate limiting 😪
+      matrix:
+        folder: [base, aws]
+        arch: [amd64, arm64]
+    env:
+      IMAGE_NAME: ansible-test-${{ matrix.folder }}-${{ matrix.arch }}:${{ github.sha }}
     steps:
       - name: Check out repository code
-        uses: actions/checkout@master
+        uses: actions/checkout@main
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+        if: matrix.arch == 'arm64'
+        with:
+          platforms: linux/arm64
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
 
-      - name: Build and push the image
-        uses: docker/build-push-action@v2
+      - name: Build the ${{ matrix.folder }} image
+        uses: docker/build-push-action@v3
         with:
-          context: base
-          push: false
-          tags: |
-            ${{ secrets.PREPROD_PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
-            ghcr.io/spacelift-io/runner-ansible:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
-
-  aws:
-    name: Build and deploy the alpine base AWS image
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository code
-        uses: actions/checkout@master
-      - name: Set env
-        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-
-      - name: Build and push the image
-        uses: docker/build-push-action@v2
-        with:
+          context: ${{ matrix.folder }}
           build-args: |
             REPOSITORY_BASE_PATH=${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}
-          context: aws
           push: false
-          tags: |
-            ${{ secrets.PREPROD_PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL_AWS }}:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
+          load: true
+          platforms: linux/${{ matrix.arch }}
+          tags: ${{ env.IMAGE_NAME }}
+
+      - name: Test if ansible and Python binary works
+        run: |
+          docker run --rm ${{ env.IMAGE_NAME }} ansible --version
+          docker run --rm ${{ env.IMAGE_NAME }} ansible-playbook --help
+          docker run --rm ${{ env.IMAGE_NAME }} ansible-galaxy --version
+          docker run --rm ${{ env.IMAGE_NAME }} ansible-runner --version
+
+          if [ "${{ matrix.folder }}" == "aws" ]; then
+            docker run --rm ${{ env.IMAGE_NAME }} sh -c "python3 -c \"import boto3; print(boto3.__version__)\""
+          fi
