@@ -1,9 +1,10 @@
-name: Deploy Preproduction
+name: Deploy
 
 on:
   push:
     branches:
       - future
+      - main
   schedule:
     - cron: '20 8 * * 1'
 
@@ -13,6 +14,7 @@ env:
 permissions:
   id-token: write
   contents: read
+  packages: write
 
 jobs:
   base:
@@ -20,13 +22,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
-        uses: actions/checkout@master
+        uses: actions/checkout@main
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: linux/arm64
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ secrets.PREPROD_AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           role-duration-seconds: 900
 
       - name: Install latest AWS CLI
@@ -34,9 +41,9 @@ jobs:
         uses: unfor19/install-aws-cli-action@v1
 
       - name: Login to Amazon ECR
-        run: aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${REPOSITORY_BASE_PATH}
+        run: aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${REPOSITORY_PATH}
         env:
-          REPOSITORY_BASE_PATH: ${{ secrets.PREPROD_PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}
+          REPOSITORY_PATH: ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}
 
       - name: Log in to GitHub registry
         uses: docker/login-action@v1
@@ -46,25 +53,31 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
 
       - name: Build and push the image
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
           context: base
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/future' }}
           tags: |
-            ${{ secrets.PREPROD_PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
+            ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
             ghcr.io/spacelift-io/runner-ansible:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
 
   aws:
-    if: false # skip aws build until we push base image to the repo
     needs: base
     name: Build and deploy the alpine base AWS image
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
-        uses: actions/checkout@master
+        uses: actions/checkout@main
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: linux/arm64
+
       - name: Set env
         run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
@@ -72,7 +85,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ secrets.PREPROD_AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           role-duration-seconds: 900
 
       - name: Install latest AWS CLI
@@ -80,17 +93,20 @@ jobs:
         uses: unfor19/install-aws-cli-action@v1
 
       - name: Login to Amazon ECR
-        run: aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${REPOSITORY_BASE_PATH}
+        run: aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${REPOSITORY_PATH}
         env:
-          REPOSITORY_BASE_PATH: ${{ secrets.PREPROD_PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}
+          REPOSITORY_PATH: ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL_AWS }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
 
       - name: Build and push the image
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
+          build-args: |
+            REPOSITORY_BASE_PATH=${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}
           context: aws
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/future' }}
           tags: |
-            ${{ secrets.PREPROD_PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}/runner-ansible-aws:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
+            ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL_AWS }}:${{ github.ref == 'refs/heads/main' && 'latest' || 'future' }}
