@@ -9,4 +9,8 @@ RUN apk -U upgrade && apk add --no-cache \
 
 RUN pip install ansible-runner
 
+RUN pip install requests
+
+RUN pip install google-auth
+
 USER spacelift
