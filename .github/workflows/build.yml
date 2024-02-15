@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       max-parallel: 2 # ECR has pretty aggressive rate limiting 😪
       matrix:
-        folder: [base, aws]
+        folder: [base, aws, gcp]
         arch: [amd64, arm64]
     env:
       IMAGE_NAME: ansible-test-${{ matrix.folder }}-${{ matrix.arch }}:${{ github.sha }}
@@ -53,4 +53,8 @@ jobs:
 
           if [ "${{ matrix.folder }}" == "aws" ]; then
             docker run --rm ${{ env.IMAGE_NAME }} sh -c "python3 -c \"import boto3; print(boto3.__version__)\""
+          fi
+          
+          if [ "${{ matrix.folder }}" == "gcp" ]; then
+            docker run --rm ${{ env.IMAGE_NAME }} sh -c "python3 -c \"import google.auth; print(google.auth.__version__)\""
           fi
