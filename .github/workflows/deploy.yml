@@ -2,9 +2,9 @@ name: Deploy
 
 on:
   push:
-    branches:
-      - future
-      - main
+    branches: ["main", "future"]
+  pull_request:
+    branches: ["main", "future"]
   schedule:
     - cron: '20 8 * * 1'
 
@@ -31,22 +31,24 @@ jobs:
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
+        if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/future' }}
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           role-duration-seconds: 900
 
       - name: Install latest AWS CLI
-        id: install-aws-cli
         uses: unfor19/install-aws-cli-action@v1
 
       - name: Login to Amazon ECR
+        if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/future' }}
         run: aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${REPOSITORY_PATH}
         env:
           REPOSITORY_PATH: ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}
 
       - name: Log in to GitHub registry
         uses: docker/login-action@v3
+        if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/future' }}
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -80,16 +82,17 @@ jobs:
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
+        if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/future' }}
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           role-duration-seconds: 900
 
       - name: Install latest AWS CLI
-        id: install-aws-cli
         uses: unfor19/install-aws-cli-action@v1
 
       - name: Login to Amazon ECR
+        if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/future' }}
         run: aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${REPOSITORY_PATH}
         env:
           REPOSITORY_PATH: ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL_AWS }}
@@ -123,16 +126,17 @@ jobs:
     
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
+        if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/future' }}
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           role-duration-seconds: 900
     
       - name: Install latest AWS CLI
-        id: install-aws-cli
         uses: unfor19/install-aws-cli-action@v1
     
       - name: Login to Amazon ECR
+        if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/future' }}
         run: aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${REPOSITORY_PATH}
         env:
           REPOSITORY_PATH: ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL_GCP }}
