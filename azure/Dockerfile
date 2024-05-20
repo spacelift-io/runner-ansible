@@ -1,0 +1,5 @@
+ARG REPOSTORY_BASE_PATH
+
+FROM ${REPOSITORY_BASE_PATH}:latest
+
+RUN pip install azure-cli
