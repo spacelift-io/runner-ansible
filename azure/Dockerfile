@@ -7,7 +7,7 @@ RUN id -u -> /tmp/uid
 
 USER root
 
-RUN apk add gcc python3-dev musl-dev linux-headers
+RUN apk add gcc python3-dev musl-dev linux-headers --break-system-packages
 
 RUN pip install azure-cli
 
