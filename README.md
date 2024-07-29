@@ -14,23 +14,43 @@ The image is pushed to the `public.ecr.aws/spacelift/runner-ansible` public repo
 
 Altogether we have 3 flavors of the image:
 
-- `public.ecr.aws/spacelift/runner-ansible` - built on top of the [Spacelift Terraform runner image](https://github.com/spacelift-io/runner-terraform), with Ansible installed.
-- `public.ecr.aws/spacelift/runner-ansible-aws` - built on top of `runner-ansible`, with `boto3` and [`session-manager-plugin`](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) installed.
-- `public.ecr.aws/spacelift/runner-ansible-gcp` - built on top of `runner-ansible`, with `google-auth` installed.
+- `runner-ansible:${ANSIBLE_VERSION}` - built on top of `python:3.12-alpine` base image, with `ansible` and `ansible-runner` installed.
+- `runner-ansible:${ANSIBLE_VERSION}-aws` - built on top of `runner-ansible`, with `boto3` installed.
+- `runner-ansible:${ANSIBLE_VERSION}-gcp` - built on top of `runner-ansible`, with `google-auth` installed.
 
-## Branch Model
+Every image is available for the following architectures:
 
-This repository uses two main branches:
+- linux/amd64
+- linux/arm64
 
-- `main` - contains the production version of the runner image.
-- `future` - used to test development changes.
+## Tag Model
 
-Pushes to main deploy to the `latest` tag, whereas pushes to future deploy to the `future` tag. This
-means that to use the development version you can use the `public.ecr.aws/spacelift/runner-ansible:future` image.
+This repository create a tag for each minor version of ansible.
 
-## Development
+In case you don't care about locking the minor version, we also create a tag for the major version that is automatically
+bumped when a new minor is released.
+
+You can find below is a non-exhaustive list of tags. This may get outdated with time.
+
+- `10`, `10.2` 
+- `10.1`
+- `9`, `9.8`
+- `9.7`
+- `...`
+
+All tags are rebuild every sunday at midnight to be able to get latest security fixes.
+
+## Contributing
 
 The only requirement for working on this repo is a [Docker](https://www.docker.com/) installation.
+
+**ℹ️ Please do not open PR to add a new package to those base images because your workflow need it.**
+
+We want to keep the size of those base image as small as possible 🙏 Only package that are a **strong requirement** to run ansible will be accepted in base images. 
+
+If you need a specific package, please maintain your own version using those image as base image with `FROM public.ecr.aws/spacelift/runner-ansible:10`.
+
+We are open to add new image flavors if needed to support common ansible roles and use cases. The rule of thumb is to keep base image small.
 
 ### Testing a new Image
 
