@@ -145,6 +145,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        target:
+          - base
+          - aws
+          - gcp
         versions: ${{ fromJson(needs.matrix.outputs.matrix) }}
     if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/ansible_build_matrix' }} # TODO(eliecharra): remove the branch
     permissions:
@@ -152,50 +156,22 @@ jobs:
       packages: write
       contents: read
     steps:
-      - name: Download base/amd64 artifact
+      - name: Download ${{ matrix.target }}/amd64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-base-linux-amd64
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64
           path: /tmp
 
-      - name: Download gcp/amd64 artifact
+      - name: Download ${{ matrix.target }}/arm64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-gcp-linux-amd64
-          path: /tmp
-
-      - name: Download aws/amd64 artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-aws-linux-amd64
-          path: /tmp
-
-      - name: Download base/arm64 artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-base-linux-arm64
-          path: /tmp
-
-      - name: Download gcp/arm64 artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-gcp-linux-arm64
-          path: /tmp
-
-      - name: Download aws/arm64 artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-aws-linux-arm64
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64
           path: /tmp
 
       - name: Load image
         run: |
-          docker load --input /tmp/${{ matrix.versions.ansible }}-base-linux-amd64.tar
-          docker load --input /tmp/${{ matrix.versions.ansible }}-gcp-linux-amd64.tar
-          docker load --input /tmp/${{ matrix.versions.ansible }}-aws-linux-amd64.tar
-          docker load --input /tmp/${{ matrix.versions.ansible }}-base-linux-arm64.tar
-          docker load --input /tmp/${{ matrix.versions.ansible }}-gcp-linux-arm64.tar
-          docker load --input /tmp/${{ matrix.versions.ansible }}-aws-linux-arm64.tar
+          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64.tar
+          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64.tar
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -219,167 +195,92 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v4
 
-      - name: Push images
+      - name: Push images ${{ matrix.versions.ansible }}/${{ matrix.target }}
         working-directory: .github/scripts
         env:
           ECR_IMAGE: ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}
+          TARGET_TAG: -${{ matrix.target }}
         run: |
-          # Push ECR amd64 tags
-          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-base-linux-amd64-${{ github.sha }}\
-            ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-linux-amd64
-          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-gcp-linux-amd64-${{ github.sha }}\
-            ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-gcp-linux-amd64
-          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-aws-linux-amd64-${{ github.sha }}\
-            ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-aws-linux-amd64
+          if [[ "${TARGET_TAG}" == "-base" ]]; then
+            TARGET_TAG=""
+          fi
+
+          # Push ECR amd64 tag
+          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}\
+            ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-amd64
 
           # Push ECR amd64 additional tags
           for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
           do
-            ./retag-and-push.sh ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-linux-amd64\
-                ${{ env.ECR_IMAGE }}:$tag-linux-amd64
-            ./retag-and-push.sh ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-gcp-linux-amd64\
-                ${{ env.ECR_IMAGE }}:$tag-gcp-linux-amd64
-            ./retag-and-push.sh ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-aws-linux-amd64\
-                ${{ env.ECR_IMAGE }}:$tag-aws-linux-amd64
+            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}\
+                ${{ env.ECR_IMAGE }}:${tag}${TARGET_TAG}-linux-amd64
           done
 
           # Push ECR arm64 tags
-          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-base-linux-arm64-${{ github.sha }}\
-            ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-linux-arm64
-          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-gcp-linux-arm64-${{ github.sha }}\
-            ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-gcp-linux-arm64
-          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-aws-linux-arm64-${{ github.sha }}\
-            ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-aws-linux-arm64
+          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}\
+            ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-arm64
 
           # Push ECR amd64 additional tags
           for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
           do
-            ./retag-and-push.sh ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-linux-arm64\
-                ${{ env.ECR_IMAGE }}:$tag-linux-arm64
-            ./retag-and-push.sh ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-gcp-linux-arm64\
-                ${{ env.ECR_IMAGE }}:$tag-gcp-linux-arm64
-            ./retag-and-push.sh ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-aws-linux-arm64\
-                ${{ env.ECR_IMAGE }}:$tag-aws-linux-arm64
+            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}\
+                ${{ env.ECR_IMAGE }}:${tag}${TARGET_TAG}-linux-arm64
           done
 
           # Push ghcr amd64 tags
-          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-base-linux-amd64-${{ github.sha }}\
-            ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-linux-amd64
-          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-gcp-linux-amd64-${{ github.sha }}\
-            ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-gcp-linux-amd64
-          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-aws-linux-amd64-${{ github.sha }}\
-            ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-aws-linux-amd64
+          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}\
+            ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-amd64
 
           # Push ghcr amd64 additional tags
           for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
           do
-            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-linux-amd64\
-              ghcr.io/${{ github.repository }}:$tag-linux-amd64
-            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-gcp-linux-amd64\
-              ghcr.io/${{ github.repository }}:$tag-gcp-linux-amd64
-            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-aws-linux-amd64\
-              ghcr.io/${{ github.repository }}:$tag-aws-linux-amd64
+            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}\
+              ghcr.io/${{ github.repository }}:${tag}${TARGET_TAG}-linux-amd64
           done
 
           # Push ghcr arm64 tags
-          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-base-linux-arm64-${{ github.sha }}\
-            ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-linux-arm64
-          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-gcp-linux-arm64-${{ github.sha }}\
-            ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-gcp-linux-arm64
-          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-aws-linux-arm64-${{ github.sha }}\
-            ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-aws-linux-arm64
+          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}\
+            ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-arm64
 
           # Push ghcr arm64 additional tags
           for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
           do
-            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-linux-arm64\
-              ghcr.io/${{ github.repository }}:$tag-linux-arm64
-            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-gcp-linux-arm64\
-              ghcr.io/${{ github.repository }}:$tag-gcp-linux-arm64
-            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-aws-linux-arm64\
-              ghcr.io/${{ github.repository }}:$tag-aws-linux-arm64
+            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}\
+              ghcr.io/${{ github.repository }}:${tag}${TARGET_TAG}-linux-arm64
           done
 
           # Assemble multi arch ECR manifests
-          echo "Create ECR manifest ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}"
-          docker manifest create ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }} \
-            --amend ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-linux-arm64 \
-            --amend ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-linux-amd64
-          docker manifest push ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}
-
-          echo "Create ECR manifest ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-gcp"
-          docker manifest create ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-gcp \
-            --amend ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-gcp-linux-arm64 \
-            --amend ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-gcp-linux-amd64
-          docker manifest push ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-gcp
-
-          echo "Create ECR manifest ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-aws"
-          docker manifest create ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-aws \
-            --amend ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-aws-linux-arm64 \
-            --amend ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-aws-linux-amd64
-          docker manifest push ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}-aws
+          echo "Create ECR manifest ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG}"
+          docker manifest create ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG} \
+            --amend ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-arm64 \
+            --amend ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-amd64
+          docker manifest push ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG}
 
           # Assemble multi arch ECR manifests for additional tags
           for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
           do
-            echo "Create manifest ${{ env.ECR_IMAGE }}:$tag"
-            docker manifest create ${{ env.ECR_IMAGE }}:$tag \
-              --amend ${{ env.ECR_IMAGE }}:$tag-linux-arm64 \
-              --amend ${{ env.ECR_IMAGE }}:$tag-linux-amd64
-            docker manifest push ${{ env.ECR_IMAGE }}:$tag
-
-            echo "Create manifest ${{ env.ECR_IMAGE }}:$tag-gcp"
-            docker manifest create ${{ env.ECR_IMAGE }}:$tag-gcp \
-              --amend ${{ env.ECR_IMAGE }}:$tag-gcp-linux-arm64 \
-              --amend ${{ env.ECR_IMAGE }}:$tag-gcp-linux-amd64
-            docker manifest push ${{ env.ECR_IMAGE }}:$tag-gcp
-
-            echo "Create manifest ${{ env.ECR_IMAGE }}:$tag-aws"
-            docker manifest create ${{ env.ECR_IMAGE }}:$tag-aws \
-              --amend ${{ env.ECR_IMAGE }}:$tag-aws-linux-arm64 \
-              --amend ${{ env.ECR_IMAGE }}:$tag-aws-linux-amd64
-            docker manifest push ${{ env.ECR_IMAGE }}:$tag-aws
+            echo "Create manifest ${{ env.ECR_IMAGE }}:${tag}${TARGET_TAG}"
+            docker manifest create ${{ env.ECR_IMAGE }}:${tag}${TARGET_TAG} \
+              --amend ${{ env.ECR_IMAGE }}:${tag}${TARGET_TAG}-linux-arm64 \
+              --amend ${{ env.ECR_IMAGE }}:${tag}${TARGET_TAG}-linux-amd64
+            docker manifest push ${{ env.ECR_IMAGE }}:${tag}${TARGET_TAG}
           done
 
           # Assemble multi arch ghcr manifests
-          echo "Create manifest ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}"
-          docker manifest create ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }} \
-            --amend ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-linux-arm64 \
-            --amend ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-linux-amd64
-          docker manifest push ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}
-
-          echo "Create manifest ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-gcp"
-          docker manifest create ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-gcp \
-            --amend ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-gcp-linux-arm64 \
-            --amend ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-gcp-linux-amd64
-          docker manifest push ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-gcp
-
-          echo "Create manifest ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-aws"
-          docker manifest create ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-aws \
-            --amend ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-aws-linux-arm64 \
-            --amend ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-aws-linux-amd64
-          docker manifest push ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-aws
+          echo "Create manifest ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${TARGET_TAG}"
+          docker manifest create ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${TARGET_TAG} \
+            --amend ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-arm64 \
+            --amend ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-amd64
+          docker manifest push ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${TARGET_TAG}
 
           # Assemble multi arch ghcr manifests for additional tags
           for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
           do
-            echo "Create manifest ghcr.io/${{ github.repository }}:$tag"
-            docker manifest create ghcr.io/${{ github.repository }}:$tag \
-              --amend ghcr.io/${{ github.repository }}:$tag-linux-arm64 \
-              --amend ghcr.io/${{ github.repository }}:$tag-linux-amd64
-            docker manifest push ghcr.io/${{ github.repository }}:$tag
-
-            echo "Create manifest ghcr.io/${{ github.repository }}:$tag-gcp"
-            docker manifest create ghcr.io/${{ github.repository }}:$tag-gcp \
-              --amend ghcr.io/${{ github.repository }}:$tag-gcp-linux-arm64 \
-              --amend ghcr.io/${{ github.repository }}:$tag-gcp-linux-amd64
-            docker manifest push ghcr.io/${{ github.repository }}:$tag-gcp
-
-            echo "Create manifest ghcr.io/${{ github.repository }}:$tag-aws"
-            docker manifest create ghcr.io/${{ github.repository }}:$tag-aws \
-              --amend ghcr.io/${{ github.repository }}:$tag-aws-linux-arm64 \
-              --amend ghcr.io/${{ github.repository }}:$tag-aws-linux-amd64
-            docker manifest push ghcr.io/${{ github.repository }}:$tag-aws
+            echo "Create manifest ghcr.io/${{ github.repository }}:${tag}${TARGET_TAG}"
+            docker manifest create ghcr.io/${{ github.repository }}:${tag}${TARGET_TAG} \
+              --amend ghcr.io/${{ github.repository }}:${tag}${TARGET_TAG}-linux-arm64 \
+              --amend ghcr.io/${{ github.repository }}:${tag}${TARGET_TAG}-linux-amd64
+            docker manifest push ghcr.io/${{ github.repository }}:${tag}${TARGET_TAG}
           done
 
   security:
@@ -389,57 +290,37 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        target:
+          - base
+          - aws
+          - gcp
         platform:
           - linux/amd64
           - linux/arm64
         versions: ${{ fromJson(needs.matrix.outputs.matrix) }}
     steps:
       - name: Prepare
+        env:
+          TARGET_TAG: -${{ matrix.target }}
         run: |
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+          if [[ "${TARGET_TAG}" == "-base" ]]; then
+            TARGET_TAG=""
+          fi
+          echo "TARGET_TAG=${TARGET_TAG}" >> $GITHUB_ENV
 
-      - name: Run Trivy vulnerability scanner for base image
+      - name: Run Trivy vulnerability scanner for ${{ matrix.target }} image
         uses: aquasecurity/trivy-action@0.24.0
         with:
-          image-ref: "ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ env.PLATFORM_PAIR }}"
+          image-ref: "ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${{ env.TARGET_TAG }}-${{ env.PLATFORM_PAIR }}"
           format: "template"
           template: "@/contrib/sarif.tpl"
-          output: "base.sarif"
+          output: "${{ matrix.target }}.sarif"
           severity: "CRITICAL,HIGH"
 
-      - name: Run Trivy vulnerability scanner for gcp image
-        uses: aquasecurity/trivy-action@0.24.0
-        with:
-          image-ref: "ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-gcp-${{ env.PLATFORM_PAIR }}"
-          format: "template"
-          template: "@/contrib/sarif.tpl"
-          output: "gcp.sarif"
-          severity: "CRITICAL,HIGH"
-
-      - name: Run Trivy vulnerability scanner for aws image
-        uses: aquasecurity/trivy-action@0.24.0
-        with:
-          image-ref: "ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-aws-${{ env.PLATFORM_PAIR }}"
-          format: "template"
-          template: "@/contrib/sarif.tpl"
-          output: "aws.sarif"
-          severity: "CRITICAL,HIGH"
-
-      - name: Upload base image scan results to GitHub Security tab
+      - name: Upload ${{ matrix.target }} image scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         with:
-          category: base
-          sarif_file: "base.sarif"
-
-      - name: Upload gcp image scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          category: gcp
-          sarif_file: "gcp.sarif"
-
-      - name: Upload aws image scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          category: aws
-          sarif_file: "aws.sarif"
+          category: ${{ matrix.target }}
+          sarif_file: "${{ matrix.target }}.sarif"
