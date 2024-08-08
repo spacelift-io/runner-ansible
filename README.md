@@ -12,11 +12,12 @@ to use `public.ecr.aws/spacelift/runner-ansible` as the runner image for the sta
 The image is pushed to the `public.ecr.aws/spacelift/runner-ansible` public repository. It is also pushed to the
 `ghcr.io/spacelift-io/runner-ansible` repository as a backup in case of issues with ECR.
 
-Altogether we have 3 flavors of the image:
+Altogether we have 4 flavors of the image:
 
 - `runner-ansible:${ANSIBLE_VERSION}` - built on top of `python:3.12-alpine` base image, with `ansible` and `ansible-runner` installed.
 - `runner-ansible:${ANSIBLE_VERSION}-aws` - built on top of `runner-ansible`, with `boto3` installed.
 - `runner-ansible:${ANSIBLE_VERSION}-gcp` - built on top of `runner-ansible`, with `google-auth` installed.
+- `runner-ansible:${ANSIBLE_VERSION}-azure` - built on top of `runner-ansible`, with `azure-cli` installed.
 
 Every image is available for the following architectures:
 

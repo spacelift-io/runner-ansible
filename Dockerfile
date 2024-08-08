@@ -23,3 +23,11 @@ USER 1983
 FROM ansible AS aws
 RUN pip install --no-cache-dir boto3==1.*
 USER 1983
+
+FROM ansible AS azure
+RUN apk add --virtual=build --no-cache gcc musl-dev linux-headers &&\
+    pip install --no-cache-dir azure-cli==2.* &&\
+    # Cleanup package manager cache and remove build deps
+    apk del build &&\
+    rm -rf /var/cache/apk/*
+USER 1983
