@@ -1,4 +1,4 @@
-FROM public.ecr.aws/spacelift/runner-terraform
+FROM public.ecr.aws/spacelift/runner-terraform:v1.5.0_20240617
 
 USER root
 WORKDIR /home/spacelift
