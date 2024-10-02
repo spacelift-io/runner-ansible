@@ -53,6 +53,7 @@ jobs:
 
           if [ "${{ matrix.folder }}" == "aws" ]; then
             docker run --rm ${{ env.IMAGE_NAME }} sh -c "python3 -c \"import boto3; print(boto3.__version__)\""
+            docker run --rm ${{ env.IMAGE_NAME }} session-manager-plugin --version
           fi
           
           if [ "${{ matrix.folder }}" == "gcp" ]; then
