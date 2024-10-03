@@ -15,7 +15,7 @@ The image is pushed to the `public.ecr.aws/spacelift/runner-ansible` public repo
 Altogether we have 3 flavors of the image:
 
 - `public.ecr.aws/spacelift/runner-ansible` - built on top of the [Spacelift Terraform runner image](https://github.com/spacelift-io/runner-terraform), with Ansible installed.
-- `public.ecr.aws/spacelift/runner-ansible-aws` - built on top of `runner-ansible`, with `boto3` installed.
+- `public.ecr.aws/spacelift/runner-ansible-aws` - built on top of `runner-ansible`, with `boto3` and [`session-manager-plugin`](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) installed.
 - `public.ecr.aws/spacelift/runner-ansible-gcp` - built on top of `runner-ansible`, with `google-auth` installed.
 
 ## Branch Model
