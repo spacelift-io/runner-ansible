@@ -20,6 +20,10 @@ func TestGenerateBuildMatrix(t *testing.T) {
 			"3.1.0":  struct{}{},
 			"3.1.1":  struct{}{},
 			"3.2.0":  struct{}{},
+			"3.3.0":  struct{}{},
+			"3.4.0":  struct{}{},
+			"3.5.0":  struct{}{},
+			"3.6.0":  struct{}{},
 		},
 	}
 
@@ -29,11 +33,23 @@ func TestGenerateBuildMatrix(t *testing.T) {
 	matrix := GenerateBuildMatrix(bytes.NewReader(fakeJsonResponse), 2)
 	expectedMatrix := Matrix{
 		{
-			Ansible:        "3.2",
+			Ansible:        "3.6",
 			AdditionalTags: []string{"3"},
 		},
 		{
-			Ansible:        "3.1",
+			Ansible:        "3.5",
+			AdditionalTags: []string{},
+		},
+		{
+			Ansible:        "3.4",
+			AdditionalTags: []string{},
+		},
+		{
+			Ansible:        "3.3",
+			AdditionalTags: []string{},
+		},
+		{
+			Ansible:        "3.2",
 			AdditionalTags: []string{},
 		},
 		{

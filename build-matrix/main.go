@@ -14,6 +14,8 @@ import (
 const (
 	// Define the oldest major version we care about, we do not want to build image starting ansible 1.0
 	minSupportedMajor = 7
+	// Numbed of latest minor release to keep building
+	maxSupportedMinor = 5
 )
 
 type ReleaseResponse struct {
@@ -38,6 +40,7 @@ type Matrix []matrixVersion
 // - 10.1
 // - 10.3
 // - 10.4, additional_tags: 10
+// We also only keep the latest 5 minor versions because we are limited to 256 jobs per workflow run
 // Check main_test.go for a quick overview of the expected behavior.
 func main() {
 	resp, err := http.Get("https://pypi.org/pypi/ansible/json")
@@ -87,7 +90,9 @@ func GenerateBuildMatrix(reader io.Reader, minSupportedMajor uint64) Matrix {
 		if _, exists := versionGroupedByMajor[major]; !exists {
 			majorVersions = append(majorVersions, major)
 		}
-		versionGroupedByMajor[major] = append(versionGroupedByMajor[major], version)
+		if len(versionGroupedByMajor[major]) < maxSupportedMinor {
+			versionGroupedByMajor[major] = append(versionGroupedByMajor[major], version)
+		}
 	}
 
 	sort.Sort(sort.Reverse(sort.IntSlice(majorVersions)))
