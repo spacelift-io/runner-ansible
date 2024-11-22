@@ -320,13 +320,15 @@ jobs:
           echo "TARGET_TAG=${TARGET_TAG}" >> $GITHUB_ENV
 
       - name: Run Trivy vulnerability scanner for ${{ matrix.target }} image
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@0.27.0
         with:
           image-ref: "ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${{ env.TARGET_TAG }}-${{ env.PLATFORM_PAIR }}"
           format: "template"
           template: "@/contrib/sarif.tpl"
           output: "${{ matrix.target }}.sarif"
           severity: "CRITICAL,HIGH"
+        env:
+          TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db
 
       - name: Upload ${{ matrix.target }} image scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
