@@ -159,7 +159,7 @@ jobs:
           - gcp
           - azure
         versions: ${{ fromJson(needs.matrix.outputs.matrix) }}
-    if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/ansible_build_matrix' }} # TODO(eliecharra): remove the branch
+    if: github.ref == 'refs/heads/main'
     permissions:
       id-token: write
       packages: write
