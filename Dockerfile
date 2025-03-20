@@ -1,4 +1,4 @@
-ARG BASE_IMAGE
+ARG BASE_IMAGE=python:3.12-alpine
 FROM ${BASE_IMAGE} AS ansible
 ARG ANSIBLE_VERSION=10.0
 ENV ANSIBLE_COLLECTIONS_PATH=/usr/share/ansible/collections
