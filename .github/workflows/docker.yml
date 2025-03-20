@@ -208,6 +208,10 @@ jobs:
           docker run --rm ${{ env.IMAGE }} ansible-runner --version
           docker run --rm ${{ env.IMAGE }} ansible-galaxy collection list
 
+      - name: Test fips
+        run: |
+          docker run --rm ${{ env.IMAGE }} sh -c '[ -n "$OPENSSL_FIPS" ] || exit 1'
+
       - name: Test aws flavor
         if: matrix.target == 'aws'
         run: |
