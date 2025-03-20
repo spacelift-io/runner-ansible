@@ -75,15 +75,37 @@ jobs:
           target: ${{ matrix.target }}
           build-args: |
             ANSIBLE_VERSION=${{ matrix.versions.ansible }}
+            BASE_IMAGE=python:3.12-alpine
           platforms: ${{ matrix.platform }}
           outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
           tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-${{ github.sha }}
+
+      - name: Build Docker fips images
+        uses: docker/build-push-action@v6
+        id: build
+        with:
+          pull: true
+          target: ${{ matrix.target }}
+          build-args: |
+            ANSIBLE_VERSION=${{ matrix.versions.ansible }}
+            BASE_IMAGE=ghcr.io/spacelift-io/alpine-fips:python-latest
+          platforms: ${{ matrix.platform }}
+          outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips.tar
+          tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-${{ github.sha }}-fips
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}
           path: /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips
+          path: /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips.tar
           retention-days: 1
           if-no-files-found: error
 
@@ -144,6 +166,63 @@ jobs:
         run: |
           docker run --rm ${{ env.IMAGE }} az --version
 
+  test-fips:
+    name: Test image ${{ matrix.versions.ansible }}-${{ matrix.target }}/${{ matrix.platform }}
+    needs: [ matrix, build ]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - base
+          - aws
+          - gcp
+          - azure
+        platform:
+          - linux/amd64
+        versions: ${{ fromJson(needs.matrix.outputs.matrix) }}
+    steps:
+      - name: Prepare
+        run: |
+          platform=${{ matrix.platform }}
+          export PLATFORM_PAIR=${platform//\//-}
+          echo "PLATFORM_PAIR=${PLATFORM_PAIR}" >> $GITHUB_ENV
+          echo "IMAGE=ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${PLATFORM_PAIR}-${{ github.sha }}-fips" >> $GITHUB_ENV
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips
+          path: /tmp
+
+      - name: Load image
+        run: |
+          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips.tar
+          docker image ls -a
+
+      - name: Test ansible version
+        run: |
+          docker run --rm ${{ env.IMAGE }} ansible-community --version | grep 'Ansible community version ${{ matrix.versions.ansible }}'
+          docker run --rm ${{ env.IMAGE }} ansible --version
+          docker run --rm ${{ env.IMAGE }} ansible-playbook --version
+          docker run --rm ${{ env.IMAGE }} ansible-galaxy --version
+          docker run --rm ${{ env.IMAGE }} ansible-runner --version
+          docker run --rm ${{ env.IMAGE }} ansible-galaxy collection list
+
+      - name: Test aws flavor
+        if: matrix.target == 'aws'
+        run: |
+          docker run --rm ${{ env.IMAGE }} sh -c "python3 -c \"import boto3; print(boto3.__version__)\""
+
+      - name: Test gcp flavor
+        if: matrix.target == 'gcp'
+        run: |
+          docker run --rm ${{ env.IMAGE }} sh -c "python3 -c \"import google.auth; print(google.auth.__version__)\""
+
+      - name: Test azure flavor
+        if: matrix.target == 'azure'
+        run: |
+          docker run --rm ${{ env.IMAGE }} az --version
+
   deploy:
     if: github.ref == 'refs/heads/main'
     needs: [ matrix, test ]
@@ -151,6 +230,155 @@ jobs:
     with:
       matrix: ${{ needs.matrix.outputs.matrix }}
     secrets: inherit
+
+
+  deploy-fips:
+    name: Push image ${{ matrix.versions.ansible }}/${{ matrix.target }}-fips
+    needs: [ matrix, test-fips ]
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: "us-east-1"
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - base
+          - aws
+          - gcp
+          - azure
+        versions: ${{ fromJson(needs.matrix.outputs.matrix) }}
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write
+      packages: write
+      contents: read
+    steps:
+      - name: Download ${{ matrix.target }}/amd64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-fips
+          path: /tmp
+
+      - name: Download ${{ matrix.target }}/arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-fips
+          path: /tmp
+
+      - name: Load image
+        run: |
+          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-fips.tar
+          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-fips.tar
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 900
+
+      - name: Login to Amazon ECR
+        run: aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${REPOSITORY_PATH}
+        env:
+          REPOSITORY_PATH: ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}
+
+      - name: Log in to Github Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Push images ${{ matrix.versions.ansible }}/${{ matrix.target }}
+        working-directory: .github/scripts
+        env:
+          ECR_IMAGE: ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}
+          TARGET_TAG: -${{ matrix.target }}-fips
+        run: |
+          if [[ "${TARGET_TAG}" == "-base" ]]; then
+            TARGET_TAG=""
+          fi
+
+          # Push ECR amd64 tag
+          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}-fips \
+            ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-amd64
+
+          # Push ECR amd64 additional tags
+          for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
+          do
+            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}-fips\
+                ${{ env.ECR_IMAGE }}:${tag}${TARGET_TAG}-linux-amd64
+          done
+
+          # Push ECR arm64 tags
+          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}-fips\
+            ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-arm64
+
+          # Push ECR amd64 additional tags
+          for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
+          do
+            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}-fips\
+                ${{ env.ECR_IMAGE }}:${tag}${TARGET_TAG}-linux-arm64
+          done
+
+          # Push ghcr amd64 tags
+          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}-fips\
+            ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-amd64
+
+          # Push ghcr amd64 additional tags
+          for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
+          do
+            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}-fips\
+              ghcr.io/${{ github.repository }}:${tag}${TARGET_TAG}-linux-amd64
+          done
+
+          # Push ghcr arm64 tags
+          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}-fips\
+            ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-arm64
+
+          # Push ghcr arm64 additional tags
+          for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
+          do
+            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}-fips\
+              ghcr.io/${{ github.repository }}:${tag}${TARGET_TAG}-linux-arm64
+          done
+
+          # Assemble multi arch ECR manifests
+          echo "Create ECR manifest ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG}"
+          docker manifest create ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG} \
+            --amend ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-arm64 \
+            --amend ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-amd64
+          docker manifest push ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG}
+
+          # Assemble multi arch ECR manifests for additional tags
+          for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
+          do
+            echo "Create manifest ${{ env.ECR_IMAGE }}:${tag}${TARGET_TAG}"
+            docker manifest create ${{ env.ECR_IMAGE }}:${tag}${TARGET_TAG} \
+              --amend ${{ env.ECR_IMAGE }}:${tag}${TARGET_TAG}-linux-arm64 \
+              --amend ${{ env.ECR_IMAGE }}:${tag}${TARGET_TAG}-linux-amd64
+            docker manifest push ${{ env.ECR_IMAGE }}:${tag}${TARGET_TAG}
+          done
+
+          # Assemble multi arch ghcr manifests
+          echo "Create manifest ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${TARGET_TAG}"
+          docker manifest create ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${TARGET_TAG} \
+            --amend ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-arm64 \
+            --amend ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-amd64
+          docker manifest push ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${TARGET_TAG}
+
+          # Assemble multi arch ghcr manifests for additional tags
+          for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
+          do
+            echo "Create manifest ghcr.io/${{ github.repository }}:${tag}${TARGET_TAG}"
+            docker manifest create ghcr.io/${{ github.repository }}:${tag}${TARGET_TAG} \
+              --amend ghcr.io/${{ github.repository }}:${tag}${TARGET_TAG}-linux-arm64 \
+              --amend ghcr.io/${{ github.repository }}:${tag}${TARGET_TAG}-linux-amd64
+            docker manifest push ghcr.io/${{ github.repository }}:${tag}${TARGET_TAG}
+          done
 
   security:
     name: Security scan
