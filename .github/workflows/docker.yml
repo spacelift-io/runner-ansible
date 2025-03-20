@@ -82,7 +82,7 @@ jobs:
 
       - name: Build Docker fips images
         uses: docker/build-push-action@v6
-        id: build
+        id: build-fips
         with:
           pull: true
           target: ${{ matrix.target }}
