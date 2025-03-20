@@ -75,7 +75,6 @@ jobs:
           target: ${{ matrix.target }}
           build-args: |
             ANSIBLE_VERSION=${{ matrix.versions.ansible }}
-            BASE_IMAGE=python:3.12-alpine
           platforms: ${{ matrix.platform }}
           outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
           tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-${{ github.sha }}
