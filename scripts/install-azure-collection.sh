@@ -25,6 +25,8 @@ if [[ "$(python -c "print($ANSIBLE_VERSION > 7.7)")" == "True" && "$(python -c "
   rm -rf /ansible
   mkdir -p /ansible
   chown 1983:1983 /ansible
+
+  chown -R 1983:1983 "${ANSIBLE_COLLECTIONS_PATH}"
 else
   echo "Ansible version $ANSIBLE_VERSION either does not support ansible galaxy collection installation or the version of the azure collection is already installed."
 fi
