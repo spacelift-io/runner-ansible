@@ -89,8 +89,8 @@ jobs:
             ANSIBLE_VERSION=${{ matrix.versions.ansible }}
             BASE_IMAGE=ghcr.io/spacelift-io/alpine-fips:python-latest
           platforms: ${{ matrix.platform }}
-          outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips.tar
-          tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-${{ github.sha }}-fips
+          outputs: type=docker,dest=/tmp-fips/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
+          tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-${{ github.sha }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -186,16 +186,16 @@ jobs:
           platform=${{ matrix.platform }}
           export PLATFORM_PAIR=${platform//\//-}
           echo "PLATFORM_PAIR=${PLATFORM_PAIR}" >> $GITHUB_ENV
-          echo "IMAGE=ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${PLATFORM_PAIR}-${{ github.sha }}-fips" >> $GITHUB_ENV
+          echo "IMAGE=ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${PLATFORM_PAIR}-${{ github.sha }}" >> $GITHUB_ENV
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips
-          path: /tmp
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}
+          path: /tmp-fips
 
       - name: Load image
         run: |
-          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips.tar
+          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
           docker image ls -a
 
       - name: Test ansible version
