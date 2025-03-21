@@ -150,7 +150,6 @@ jobs:
     uses: ./.github/workflows/deploy.yaml
     with:
       matrix: ${{ needs.matrix.outputs.matrix }}
-      target_tag_postfix: ""
     secrets: inherit
 
   security:

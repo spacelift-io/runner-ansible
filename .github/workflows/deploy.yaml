@@ -6,7 +6,8 @@ on:
         required: true
         type: string
       target_tag_postfix:
-        required: true
+        required: false
+        default: ''
         type: string
 
 jobs:
