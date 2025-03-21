@@ -151,7 +151,7 @@ jobs:
     with:
       matrix: ${{ needs.matrix.outputs.matrix }}
       target_tag_postfix: ""
-    secrets: inheritx
+    secrets: inherit
 
   security:
     name: Security scan
