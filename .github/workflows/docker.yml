@@ -89,7 +89,7 @@ jobs:
             ANSIBLE_VERSION=${{ matrix.versions.ansible }}
             BASE_IMAGE=ghcr.io/spacelift-io/alpine-fips:python-latest
           platforms: ${{ matrix.platform }}
-          outputs: type=docker,dest=/tmp-fips/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
+          outputs: type=docker,dest=/tmp/fips/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
           tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-${{ github.sha }}
 
       - name: Upload artifact
@@ -104,7 +104,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips
-          path: /tmp-fips/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
+          path: /tmp/fips/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
           retention-days: 1
           if-no-files-found: error
 
@@ -191,7 +191,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}
-          path: /tmp-fips
+          path: /tmp/fips
 
       - name: Load image
         run: |
@@ -241,7 +241,7 @@ jobs:
     with:
       matrix: ${{ needs.matrix.outputs.matrix }}
       target_tag_postfix: 'fips'
-      download_image_path: '/tmp-fips'
+      download_image_path: '/tmp/fips'
     secrets: inherit
 
   security:
