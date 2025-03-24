@@ -10,8 +10,8 @@ RUN apk -U upgrade --available &&\
     apk add --no-cache openssh-client ca-certificates&&\
     pip install --no-cache-dir --upgrade pip &&\
     pip install --no-cache-dir ansible==${ANSIBLE_VERSION}.* ansible-runner~=2.4 &&\
-    mkdir -p /usr/share/ansible/collections &&\
-    mkdir -p /usr/share/ansible/roles &&\
+    mkdir -p "${ANSIBLE_COLLECTIONS_PATH}" && chown 1983:1983 "${ANSIBLE_COLLECTIONS_PATH}" &&\
+    mkdir -p "${ANSIBLE_ROLES_PATH}" && chown 1983:1983 "${ANSIBLE_ROLES_PATH}" &&\
     # Cleanup package manager cache and remove build deps
     apk del build &&\
     rm -rf /var/cache/apk/*
