@@ -240,7 +240,7 @@ jobs:
     uses: ./.github/workflows/deploy.yaml
     with:
       matrix: ${{ needs.matrix.outputs.matrix }}
-      artifact_suffix: '-fips'
+      target_tag_postfix: '-fips'
     secrets: inherit
 
   security:
@@ -256,5 +256,5 @@ jobs:
     uses: ./.github/workflows/security.yaml
     with:
       matrix: ${{ needs.matrix.outputs.matrix }}
-      artifact_suffix: '-fips'
+      target_tag_postfix: '-fips'
     secrets: inherit
