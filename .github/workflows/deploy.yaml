@@ -9,10 +9,6 @@ on:
         required: false
         default: ''
         type: string
-      artifact_suffix:
-        required: false
-        default: ''
-        type: string
 
 jobs:
   deploy:
@@ -37,13 +33,13 @@ jobs:
       - name: Download ${{ matrix.target }}/amd64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64${{ inputs.target_tag_postfix }}${{ inputs.artifact_suffix }}
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64${{ inputs.target_tag_postfix }}
           path: '/tmp'
 
       - name: Download ${{ matrix.target }}/arm64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64${{ inputs.target_tag_postfix }}${{ inputs.artifact_suffix }}
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64${{ inputs.target_tag_postfix }}
           path: '/tmp'
 
       - name: Load image

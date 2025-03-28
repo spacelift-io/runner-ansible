@@ -9,10 +9,6 @@ on:
         required: false
         default: ''
         type: string
-      artifact_suffix:
-        required: false
-        default: ''
-        type: string
 
 jobs:
   security:
