@@ -2,12 +2,11 @@ name: Scan docker images
 on:
   workflow_call:
     inputs:
-      matrix:
+      versions:
         required: true
         type: string
-      target_tag_postfix:
-        required: false
-        default: ''
+      base_image:
+        required: true
         type: string
 
 jobs:
@@ -25,16 +24,23 @@ jobs:
         platform:
           - linux/amd64
           - linux/arm64
-        versions: ${{ fromJson(inputs.matrix) }}
+        base_image:
+          - name: ${{ inputs.base_image }}
+            tag_suffix: ""
+          - name: python:3.11-alpine
+            tag_suffix: "-python-3.11"
+          - name: spacelift-io/alpine-fips:python-latest
+            tag_suffix: "-fips"
+        versions: ${{ fromJson(inputs.versions) }}
     steps:
       - name: Prepare
         env:
-          TARGET_TAG: -${{ matrix.target }}${{ inputs.target_tag_postfix }}
+          TARGET_TAG: -${{ matrix.target }}${{ matrix.base_image.tag_suffix }}
         run: |
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
           if [[ "${TARGET_TAG}" == "-base" ]]; then
-            TARGET_TAG=""${{ inputs.target_tag_postfix }}
+            TARGET_TAG=""
           fi
           echo "TARGET_TAG=${TARGET_TAG}" >> $GITHUB_ENV
 
@@ -44,14 +50,14 @@ jobs:
           image-ref: "ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${{ env.TARGET_TAG }}-${{ env.PLATFORM_PAIR }}"
           format: "template"
           template: "@/contrib/sarif.tpl"
-          output: "${{ matrix.target }}${{ inputs.target_tag_postfix }}.sarif"
+          output: "${{ matrix.target }}${{ matrix.base_image.tag_suffix }}.sarif"
           severity: "CRITICAL,HIGH"
         env:
           TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db
 
-      - name: Upload ${{ matrix.target }}${{ inputs.target_tag_postfix }} image scan results to GitHub Security tab
+      - name: Upload ${{ matrix.target }}${{ matrix.base_image.tag_suffix }} image scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         with:
-          category: ${{ matrix.target }}${{ inputs.target_tag_postfix }}
-          sarif_file: "${{ matrix.target }}${{ inputs.target_tag_postfix }}.sarif"
+          category: ${{ matrix.target }}${{ matrix.base_image.tag_suffix }}
+          sarif_file: "${{ matrix.target }}${{ matrix.base_image.tag_suffix }}.sarif"
 

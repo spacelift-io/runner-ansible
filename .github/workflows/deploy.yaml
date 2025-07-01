@@ -2,12 +2,11 @@ name: Deploy docker images
 on:
   workflow_call:
     inputs:
-      matrix:
+      versions:
         required: true
         type: string
-      target_tag_postfix:
-        required: false
-        default: ''
+      base_image:
+        required: true
         type: string
 
 jobs:
@@ -24,7 +23,14 @@ jobs:
           - aws
           - gcp
           - azure
-        versions: ${{ fromJson(inputs.matrix) }}
+        base_image:
+          - name: ${{ inputs.base_image }}
+            tag_suffix: ""
+          - name: python:3.11-alpine
+            tag_suffix: "-python-3.11"
+          - name: spacelift-io/alpine-fips:python-latest
+            tag_suffix: "-fips"
+        versions: ${{ fromJson(inputs.versions) }}
     permissions:
       id-token: write
       packages: write
@@ -33,19 +39,19 @@ jobs:
       - name: Download ${{ matrix.target }}/amd64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64${{ inputs.target_tag_postfix }}
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64${{ matrix.base_image.tag_suffix }}
           path: '/tmp'
 
       - name: Download ${{ matrix.target }}/arm64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64${{ inputs.target_tag_postfix }}
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64${{ matrix.base_image.tag_suffix }}
           path: '/tmp'
 
       - name: Load image
         run: |
-          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64.tar
-          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64.tar
+          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64${{ matrix.base_image.tag_suffix }}.tar
+          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64${{ matrix.base_image.tag_suffix }}.tar
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -69,57 +75,57 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v4
 
-      - name: Push images ${{ matrix.versions.ansible }}/${{ matrix.target }}
+      - name: Push images ${{ matrix.versions.ansible }}/${{ matrix.target }}${{ matrix.base_image.tag_suffix }}
         working-directory: .github/scripts
         env:
           ECR_IMAGE: ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}
-          TARGET_TAG: -${{ matrix.target }}${{ inputs.target_tag_postfix }}
+          TARGET_TAG: -${{ matrix.target }}${{ matrix.base_image.tag_suffix }}
         run: |
           if [[ "${TARGET_TAG}" == "-base" ]]; then
-            TARGET_TAG=""${{ inputs.target_tag_postfix }}
+            TARGET_TAG=""
           fi
 
           # Push ECR amd64 tag
-          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}\
+          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64${{ matrix.base_image.tag_suffix }}-${{ github.sha }}\
             ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-amd64
 
           # Push ECR amd64 additional tags
           for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
           do
-            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}\
+            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64${{ matrix.base_image.tag_suffix }}-${{ github.sha }}\
                 ${{ env.ECR_IMAGE }}:${tag}${TARGET_TAG}-linux-amd64
           done
 
           # Push ECR arm64 tags
-          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}\
+          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64${{ matrix.base_image.tag_suffix }}-${{ github.sha }}\
             ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-arm64
 
           # Push ECR amd64 additional tags
           for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
           do
-            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}\
+            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64${{ matrix.base_image.tag_suffix }}-${{ github.sha }}\
                 ${{ env.ECR_IMAGE }}:${tag}${TARGET_TAG}-linux-arm64
           done
 
           # Push ghcr amd64 tags
-          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}\
+          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64${{ matrix.base_image.tag_suffix }}-${{ github.sha }}\
             ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-amd64
 
           # Push ghcr amd64 additional tags
           for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
           do
-            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}\
+            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64${{ matrix.base_image.tag_suffix }}-${{ github.sha }}\
               ghcr.io/${{ github.repository }}:${tag}${TARGET_TAG}-linux-amd64
           done
 
           # Push ghcr arm64 tags
-          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}\
+          ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64${{ matrix.base_image.tag_suffix }}-${{ github.sha }}\
             ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-arm64
 
           # Push ghcr arm64 additional tags
           for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
           do
-            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}\
+            ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64${{ matrix.base_image.tag_suffix }}-${{ github.sha }}\
               ghcr.io/${{ github.repository }}:${tag}${TARGET_TAG}-linux-arm64
           done
 

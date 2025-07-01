@@ -1,4 +1,6 @@
 name: Build docker images
+env:
+  BASE_IMAGE: python:3.12-alpine
 on:
   push:
   schedule:
@@ -32,6 +34,11 @@ jobs:
           MATRIX=$(go run ./)
           echo ${MATRIX} | jq
           echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
+
+      - name: Print base image
+        id: base_image
+        run: echo "base_image=${{ env.BASE_IMAGE }}" >> $GITHUB_OUTPUT
+
   build:
     needs: [ matrix ]
     runs-on: ubuntu-latest
@@ -47,6 +54,13 @@ jobs:
           - aws
           - gcp
           - azure
+        base_image:
+          - name: ${{ needs.base_image.outputs.base_image }}
+            tag_suffix: ""
+          - name: python:3.11-alpine
+            tag_suffix: "-python-3.11"
+          - name: spacelift-io/alpine-fips:python-latest
+            tag_suffix: "-fips"
         platform:
           - linux/amd64
           - linux/arm64
@@ -75,41 +89,21 @@ jobs:
           target: ${{ matrix.target }}
           build-args: |
             ANSIBLE_VERSION=${{ matrix.versions.ansible }}
+            BASE_IMAGE=${{ matrix.base_image.name }}
           platforms: ${{ matrix.platform }}
-          outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
-          tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-${{ github.sha }}
-
-      - name: Build Docker fips images
-        uses: docker/build-push-action@v6
-        id: build-fips
-        with:
-          pull: true
-          target: ${{ matrix.target }}
-          build-args: |
-            ANSIBLE_VERSION=${{ matrix.versions.ansible }}
-            BASE_IMAGE=ghcr.io/spacelift-io/alpine-fips:python-latest
-          platforms: ${{ matrix.platform }}
-          outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
-          tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-${{ github.sha }}
+          outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}${{ matrix.base_image.tag_suffix }}.tar
+          tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}${{ matrix.base_image.tag_suffix }}-${{ github.sha }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}
-          path: /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
-          retention-days: 1
-          if-no-files-found: error
-
-      - name: Upload fips artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips
-          path: /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}${{ matrix.base_image.tag_suffix }}
+          path: /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}${{ matrix.base_image.tag_suffix }}.tar
           retention-days: 1
           if-no-files-found: error
 
   test:
-    name: Test image ${{ matrix.versions.ansible }}-${{ matrix.target }}/${{ matrix.platform }}
+    name: Test image ${{ matrix.versions.ansible }}-${{ matrix.target }}/${{ matrix.platform }}${{ matrix.base_image.tag_suffix }}
     needs: [ matrix, build ]
     runs-on: ubuntu-latest
     strategy:
@@ -120,6 +114,13 @@ jobs:
           - aws
           - gcp
           - azure
+        base_image:
+          - name: ${{ needs.base_image.outputs.base_image }}
+            tag_suffix: ""
+          - name: python:3.11-alpine
+            tag_suffix: "-python-3.11"
+          - name: spacelift-io/alpine-fips:python-latest
+            tag_suffix: "-fips"
         platform:
           - linux/amd64
         versions: ${{ fromJson(needs.matrix.outputs.matrix) }}
@@ -129,16 +130,16 @@ jobs:
           platform=${{ matrix.platform }}
           export PLATFORM_PAIR=${platform//\//-}
           echo "PLATFORM_PAIR=${PLATFORM_PAIR}" >> $GITHUB_ENV
-          echo "IMAGE=ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${PLATFORM_PAIR}-${{ github.sha }}" >> $GITHUB_ENV
+          echo "IMAGE=ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${PLATFORM_PAIR}${{ matrix.base_image.tag_suffix }}-${{ github.sha }}" >> $GITHUB_ENV
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}${{ matrix.base_image.tag_suffix }}
           path: /tmp
 
       - name: Load image
         run: |
-          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
+          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}${{ matrix.base_image.tag_suffix }}.tar
           docker image ls -a
 
       - name: Test ansible version
@@ -164,97 +165,26 @@ jobs:
         if: matrix.target == 'azure'
         run: |
           docker run --rm ${{ env.IMAGE }} az --version
-
-  test-fips:
-    name: Test image ${{ matrix.versions.ansible }}-${{ matrix.target }}/${{ matrix.platform }}
-    needs: [ matrix, build ]
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        target:
-          - base
-          - aws
-          - gcp
-          - azure
-        platform:
-          - linux/amd64
-        versions: ${{ fromJson(needs.matrix.outputs.matrix) }}
-    steps:
-      - name: Prepare
-        run: |
-          platform=${{ matrix.platform }}
-          export PLATFORM_PAIR=${platform//\//-}
-          echo "PLATFORM_PAIR=${PLATFORM_PAIR}" >> $GITHUB_ENV
-          echo "IMAGE=ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${PLATFORM_PAIR}-${{ github.sha }}" >> $GITHUB_ENV
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips
-          path: /tmp
-
-      - name: Load image
-        run: |
-          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
-          docker image ls -a
-
-      - name: Test ansible version
-        run: |
-          docker run --rm ${{ env.IMAGE }} ansible-community --version | grep 'Ansible community version ${{ matrix.versions.ansible }}'
-          docker run --rm ${{ env.IMAGE }} ansible --version
-          docker run --rm ${{ env.IMAGE }} ansible-playbook --version
-          docker run --rm ${{ env.IMAGE }} ansible-galaxy --version
-          docker run --rm ${{ env.IMAGE }} ansible-runner --version
-          docker run --rm ${{ env.IMAGE }} ansible-galaxy collection list
 
       - name: Test fips
+        if: matrix.base_image.tag_suffix == '-fips'
         run: |
           docker run --rm ${{ env.IMAGE }} sh -c '[ -n "$OPENSSL_FIPS" ] || exit 1'
-
-      - name: Test aws flavor
-        if: matrix.target == 'aws'
-        run: |
-          docker run --rm ${{ env.IMAGE }} sh -c "python3 -c \"import boto3; print(boto3.__version__)\""
-
-      - name: Test gcp flavor
-        if: matrix.target == 'gcp'
-        run: |
-          docker run --rm ${{ env.IMAGE }} sh -c "python3 -c \"import google.auth; print(google.auth.__version__)\""
-
-      - name: Test azure flavor
-        if: matrix.target == 'azure'
-        run: |
-          docker run --rm ${{ env.IMAGE }} az --version
 
   deploy:
     if: github.ref == 'refs/heads/main'
     needs: [ matrix, test ]
     uses: ./.github/workflows/deploy.yaml
     with:
-      matrix: ${{ needs.matrix.outputs.matrix }}
-    secrets: inherit
-
-  deploy-fips:
-    if: github.ref == 'refs/heads/main'
-    needs: [ matrix, test ]
-    uses: ./.github/workflows/deploy.yaml
-    with:
-      matrix: ${{ needs.matrix.outputs.matrix }}
-      target_tag_postfix: '-fips'
+      versions: ${{ needs.matrix.outputs.matrix }}
+      base_image: ${{ needs.base_image.outputs.base_image }}
     secrets: inherit
 
   security:
     needs: [ matrix, deploy ]
     uses: ./.github/workflows/security.yaml
     with:
-      matrix: ${{ needs.matrix.outputs.matrix }}
+      versions: ${{ needs.matrix.outputs.matrix }}
+      base_image: ${{ needs.base_image.outputs.base_image }}
     secrets: inherit
 
-
-  security-fips:
-    needs: [ matrix, deploy ]
-    uses: ./.github/workflows/security.yaml
-    with:
-      matrix: ${{ needs.matrix.outputs.matrix }}
-      target_tag_postfix: '-fips'
-    secrets: inherit
