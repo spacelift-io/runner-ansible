@@ -34,7 +34,7 @@ func TestGenerateBuildMatrix(t *testing.T) {
 	expectedMatrix := Matrix{
 		{
 			Ansible:        "3.6",
-			AdditionalTags: []string{"3"},
+			AdditionalTags: []string{"3", "latest"},
 		},
 		{
 			Ansible:        "3.5",
