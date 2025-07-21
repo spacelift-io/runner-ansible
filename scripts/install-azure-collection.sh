@@ -24,9 +24,9 @@ if [[ "$(python -c "print($ANSIBLE_VERSION > 7.7)")" == "True" && "$(python -c "
   # Reset ansible permissions after installing newer collections
   rm -rf /ansible
   mkdir -p /ansible
-  chown 1983:1983 /ansible
+  chown spacelift:spacelift /ansible
 
-  chown -R 1983:1983 "${ANSIBLE_COLLECTIONS_PATH}"
+  chown -R spacelift:spacelift "${ANSIBLE_COLLECTIONS_PATH}"
 else
   if [[ "$(python -c "print($ANSIBLE_VERSION >= 11.3)")" == "True" ]]; then
     # Ansible 11.3 and higher already includes the azure.azcollection at version 3.2.0 but it does not include the pip requirements.
