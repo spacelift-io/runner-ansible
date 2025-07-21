@@ -49,7 +49,6 @@ func main() {
 	}
 
 	matrixOutput := GenerateBuildMatrix(resp.Body, minSupportedMajor)
-
 	output, err := json.Marshal(matrixOutput)
 	if err != nil {
 		log.Fatal(err)
@@ -99,7 +98,7 @@ func GenerateBuildMatrix(reader io.Reader, minSupportedMajor uint64) Matrix {
 
 	minorVersionDeduplication := map[string]any{}
 	matrix := Matrix{}
-	for _, majorVersion := range majorVersions {
+	for j, majorVersion := range majorVersions {
 		for i, version := range versionGroupedByMajor[majorVersion] {
 			key := fmt.Sprintf("%d.%d", version.Major(), version.Minor())
 			if _, exists := minorVersionDeduplication[key]; exists {
@@ -108,7 +107,11 @@ func GenerateBuildMatrix(reader io.Reader, minSupportedMajor uint64) Matrix {
 			additionalTags := make([]string, 0)
 			if i == 0 {
 				additionalTags = append(additionalTags, fmt.Sprintf("%d", version.Major()))
+				if j == 0 {
+					additionalTags = append(additionalTags, "latest")
+				}
 			}
+
 			minorVersionDeduplication[key] = struct{}{}
 			matrix = append(matrix, matrixVersion{
 				Ansible:        key,
