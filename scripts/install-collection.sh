@@ -11,9 +11,9 @@ if [ "$(python -c "print($ANSIBLE_VERSION > 7.7)")" = "True" ]; then
   # Reset ansible permissions after installing newer collections
   rm -rf /ansible
   mkdir -p /ansible
-  chown 1983:1983 /ansible
+  chown spacelift:spacelift /ansible
 
-  chown -R 1983:1983 "${ANSIBLE_COLLECTIONS_PATH}"
+  chown -R spacelift:spacelift "${ANSIBLE_COLLECTIONS_PATH}"
 else
   echo "Ansible version $ANSIBLE_VERSION does not support ansible galaxy collection installation."
 fi
