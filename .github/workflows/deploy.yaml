@@ -14,6 +14,9 @@ jobs:
   deploy:
     name: Push image ${{ matrix.versions.ansible }}/${{ matrix.target }}
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.target }}
+      cancel-in-progress: false
     env:
       AWS_REGION: "us-east-1"
     strategy:
