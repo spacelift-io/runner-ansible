@@ -15,7 +15,7 @@ jobs:
     name: Push image ${{ matrix.versions.ansible }}/${{ matrix.target }}
     runs-on: ubuntu-latest
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.containers }}
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.target }}
       cancel-in-progress: false
     env:
       AWS_REGION: "us-east-1"
@@ -28,7 +28,6 @@ jobs:
           - gcp
           - azure
         versions: ${{ fromJson(inputs.matrix) }}
-        containers: [1, 2, 3, 4]
     permissions:
       id-token: write
       packages: write
