@@ -7,7 +7,7 @@ COPY scripts/* /build/
 RUN adduser --disabled-password --uid=1983 spacelift &&\
     apk -U upgrade --available &&\
     # Required to install ansible pip package, bear in mind to remove those build deps at the end of this RUN directive
-    apk add --virtual=build --no-cache --update gcc musl-dev libffi-dev openssl-dev &&\
+    apk add --virtual=build --no-cache --update gcc musl-dev libffi-dev openssl-dev make cmake &&\
     # Add here package mandatory to be able to run ansible
     apk add --no-cache openssh-client ca-certificates &&\
     # Ensure latest setuptools to override any vulnerable system packages
@@ -39,7 +39,7 @@ RUN pip install --no-cache-dir boto3==1.* &&\
 USER spacelift
 
 FROM ansible AS azure
-RUN apk add --virtual=build --no-cache gcc musl-dev linux-headers &&\
+RUN apk add --virtual=build --no-cache gcc musl-dev linux-headers make cmake &&\
     # Install azure collection
     /build/install-azure-collection.sh &&\
     pip install --no-cache-dir azure-cli==2.* &&\
