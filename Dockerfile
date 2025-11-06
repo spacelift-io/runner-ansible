@@ -39,7 +39,8 @@ RUN pip install --no-cache-dir boto3==1.* &&\
 USER spacelift
 
 FROM ansible AS azure
-RUN apk add --virtual=build --no-cache gcc g++ musl-dev linux-headers make cmake &&\
+RUN apk add --virtual=build --no-cache gcc g++ musl-dev linux-headers make cmake python3 py-pip python3-dev openssl-dev build-base &&\
+    CFLAGS="-Wno-error=incompatible-pointer-types" CMAKE_POLICY_VERSION_MINIMUM=3.5 pip install uamqp &&\
     # Install azure collection
     /build/install-azure-collection.sh &&\
     pip install --no-cache-dir azure-cli==2.* &&\
