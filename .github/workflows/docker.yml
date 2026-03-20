@@ -247,19 +247,3 @@ jobs:
       matrix: ${{ needs.matrix.outputs.matrix }}
       target_tag_postfix: '-fips'
     secrets: inherit
-
-  security:
-    needs: [ matrix, deploy ]
-    uses: ./.github/workflows/security.yaml
-    with:
-      matrix: ${{ needs.matrix.outputs.matrix }}
-    secrets: inherit
-
-
-  security-fips:
-    needs: [ matrix, deploy ]
-    uses: ./.github/workflows/security.yaml
-    with:
-      matrix: ${{ needs.matrix.outputs.matrix }}
-      target_tag_postfix: '-fips'
-    secrets: inherit
