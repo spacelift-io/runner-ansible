@@ -16,9 +16,9 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: './build-matrix/go.mod'
           cache-dependency-path: './build-matrix/go.mod'
@@ -54,7 +54,7 @@ jobs:
         versions: ${{ fromJson(needs.matrix.outputs.matrix) }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Prepare
         run: |
@@ -63,13 +63,13 @@ jobs:
 
       - name: Set up QEMU
         if: matrix.platform == 'linux/arm64'
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build Docker images
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         id: build
         with:
           pull: true
@@ -81,7 +81,7 @@ jobs:
           tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-${{ github.sha }}
 
       - name: Build Docker fips images
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         id: build-fips
         with:
           pull: true
@@ -94,7 +94,7 @@ jobs:
           tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-${{ github.sha }}-fips
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}
           path: /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
@@ -102,7 +102,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload fips artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips
           path: /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips.tar
@@ -132,7 +132,7 @@ jobs:
           echo "PLATFORM_PAIR=${PLATFORM_PAIR}" >> $GITHUB_ENV
           echo "IMAGE=ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${PLATFORM_PAIR}-${{ github.sha }}" >> $GITHUB_ENV
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}
           path: /tmp
@@ -193,7 +193,7 @@ jobs:
           echo "PLATFORM_PAIR=${PLATFORM_PAIR}" >> $GITHUB_ENV
           echo "IMAGE=ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${PLATFORM_PAIR}-${{ github.sha }}-fips" >> $GITHUB_ENV
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips
           path: /tmp
