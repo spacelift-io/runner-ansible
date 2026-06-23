@@ -32,13 +32,13 @@ jobs:
       contents: read
     steps:
       - name: Download ${{ matrix.target }}/amd64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64${{ inputs.target_tag_postfix }}
           path: '/tmp'
 
       - name: Download ${{ matrix.target }}/arm64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64${{ inputs.target_tag_postfix }}
           path: '/tmp'
@@ -49,7 +49,7 @@ jobs:
           docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64${{ inputs.target_tag_postfix }}.tar
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
@@ -61,14 +61,14 @@ jobs:
           REPOSITORY_PATH: ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}
 
       - name: Log in to Github Container registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Push images ${{ matrix.versions.ansible }}/${{ matrix.target }}
         working-directory: .github/scripts
