@@ -36,7 +36,7 @@ jobs:
   build:
     needs: [ matrix ]
     runs-on: ubuntu-latest
-    name: Build ansible ${{ matrix.versions.ansible }}-${{ matrix.target }}/${{ matrix.platform }}
+    name: Build ansible ${{ matrix.versions.ansible }}-${{ matrix.target }}
     permissions:
       packages: write
       contents: read
@@ -48,69 +48,97 @@ jobs:
           - aws
           - gcp
           - azure
-        platform:
-          - linux/amd64
-          - linux/arm64
         versions: ${{ fromJson(needs.matrix.outputs.matrix) }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v7
 
-      - name: Prepare
-        run: |
-          platform=${{ matrix.platform }}
-          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
-
       - name: Set up QEMU
-        if: matrix.platform == 'linux/arm64'
         uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build Docker images
+      - name: Build Docker images (amd64)
         uses: docker/build-push-action@v7
-        id: build
         with:
           pull: true
           target: ${{ matrix.target }}
           build-args: |
             ANSIBLE_VERSION=${{ matrix.versions.ansible }}
-          platforms: ${{ matrix.platform }}
-          outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
-          tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-${{ github.sha }}
+          platforms: linux/amd64
+          outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64.tar
+          tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}
 
-      - name: Build Docker fips images
+      - name: Build Docker images (arm64)
         uses: docker/build-push-action@v7
-        id: build-fips
+        with:
+          pull: true
+          target: ${{ matrix.target }}
+          build-args: |
+            ANSIBLE_VERSION=${{ matrix.versions.ansible }}
+          platforms: linux/arm64
+          outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64.tar
+          tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}
+
+      - name: Build Docker fips images (amd64)
+        uses: docker/build-push-action@v7
         with:
           pull: true
           target: ${{ matrix.target }}
           build-args: |
             ANSIBLE_VERSION=${{ matrix.versions.ansible }}
             BASE_IMAGE=ghcr.io/spacelift-io/alpine-fips:python-latest
-          platforms: ${{ matrix.platform }}
-          outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips.tar
-          tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-${{ github.sha }}-fips
+          platforms: linux/amd64
+          outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-fips.tar
+          tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}-fips
 
-      - name: Upload artifact
+      - name: Build Docker fips images (arm64)
+        uses: docker/build-push-action@v7
+        with:
+          pull: true
+          target: ${{ matrix.target }}
+          build-args: |
+            ANSIBLE_VERSION=${{ matrix.versions.ansible }}
+            BASE_IMAGE=ghcr.io/spacelift-io/alpine-fips:python-latest
+          platforms: linux/arm64
+          outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-fips.tar
+          tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}-fips
+
+      - name: Upload artifact (amd64)
         uses: actions/upload-artifact@v7
         with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}
-          path: /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64
+          path: /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64.tar
           retention-days: 1
           if-no-files-found: error
 
-      - name: Upload fips artifact
+      - name: Upload artifact (arm64)
         uses: actions/upload-artifact@v7
         with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips
-          path: /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips.tar
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64
+          path: /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64.tar
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Upload fips artifact (amd64)
+        uses: actions/upload-artifact@v7
+        with:
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-fips
+          path: /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-fips.tar
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Upload fips artifact (arm64)
+        uses: actions/upload-artifact@v7
+        with:
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-fips
+          path: /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-fips.tar
           retention-days: 1
           if-no-files-found: error
 
   test:
-    name: Test image ${{ matrix.versions.ansible }}-${{ matrix.target }}/${{ matrix.platform }}
+    name: Test image ${{ matrix.versions.ansible }}-${{ matrix.target }}
     needs: [ matrix, build ]
     runs-on: ubuntu-latest
     strategy:
@@ -121,26 +149,21 @@ jobs:
           - aws
           - gcp
           - azure
-        platform:
-          - linux/amd64
         versions: ${{ fromJson(needs.matrix.outputs.matrix) }}
     steps:
-      - name: Prepare
-        run: |
-          platform=${{ matrix.platform }}
-          export PLATFORM_PAIR=${platform//\//-}
-          echo "PLATFORM_PAIR=${PLATFORM_PAIR}" >> $GITHUB_ENV
-          echo "IMAGE=ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${PLATFORM_PAIR}-${{ github.sha }}" >> $GITHUB_ENV
       - name: Download artifact
         uses: actions/download-artifact@v8
         with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64
           path: /tmp
 
       - name: Load image
         run: |
-          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}.tar
+          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64.tar
           docker image ls -a
+
+      - name: Set IMAGE env
+        run: echo "IMAGE=ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}" >> $GITHUB_ENV
 
       - name: Test ansible version
         run: |
@@ -171,7 +194,7 @@ jobs:
           docker run --rm ${{ env.IMAGE }} az --version
 
   test-fips:
-    name: Test image ${{ matrix.versions.ansible }}-${{ matrix.target }}/${{ matrix.platform }}
+    name: Test fips image ${{ matrix.versions.ansible }}-${{ matrix.target }}
     needs: [ matrix, build ]
     runs-on: ubuntu-latest
     strategy:
@@ -182,26 +205,21 @@ jobs:
           - aws
           - gcp
           - azure
-        platform:
-          - linux/amd64
         versions: ${{ fromJson(needs.matrix.outputs.matrix) }}
     steps:
-      - name: Prepare
-        run: |
-          platform=${{ matrix.platform }}
-          export PLATFORM_PAIR=${platform//\//-}
-          echo "PLATFORM_PAIR=${PLATFORM_PAIR}" >> $GITHUB_ENV
-          echo "IMAGE=ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-${PLATFORM_PAIR}-${{ github.sha }}-fips" >> $GITHUB_ENV
       - name: Download artifact
         uses: actions/download-artifact@v8
         with:
-          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips
+          name: ansible-runner-${{ github.sha }}-${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-fips
           path: /tmp
 
       - name: Load image
         run: |
-          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-${{ env.PLATFORM_PAIR }}-fips.tar
+          docker load --input /tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-fips.tar
           docker image ls -a
+
+      - name: Set IMAGE env
+        run: echo "IMAGE=ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}-fips" >> $GITHUB_ENV
 
       - name: Test ansible version
         run: |
@@ -233,7 +251,7 @@ jobs:
 
   deploy:
     if: github.ref == 'refs/heads/main'
-    needs: [ matrix, test ]
+    needs: [ matrix, test, test-fips ]
     uses: ./.github/workflows/deploy.yaml
     with:
       matrix: ${{ needs.matrix.outputs.matrix }}
@@ -241,7 +259,7 @@ jobs:
 
   deploy-fips:
     if: github.ref == 'refs/heads/main'
-    needs: [ matrix, test ]
+    needs: [ matrix, test, test-fips ]
     uses: ./.github/workflows/deploy.yaml
     with:
       matrix: ${{ needs.matrix.outputs.matrix }}
