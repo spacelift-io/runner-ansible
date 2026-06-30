@@ -67,6 +67,8 @@ jobs:
           build-args: |
             ANSIBLE_VERSION=${{ matrix.versions.ansible }}
           platforms: linux/amd64
+          cache-from: type=gha,scope=${{ matrix.versions.ansible }}-${{ matrix.target }}-amd64
+          cache-to: type=gha,mode=max,scope=${{ matrix.versions.ansible }}-${{ matrix.target }}-amd64
           outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64.tar
           tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}
 
@@ -78,6 +80,8 @@ jobs:
           build-args: |
             ANSIBLE_VERSION=${{ matrix.versions.ansible }}
           platforms: linux/arm64
+          cache-from: type=gha,scope=${{ matrix.versions.ansible }}-${{ matrix.target }}-arm64
+          cache-to: type=gha,mode=max,scope=${{ matrix.versions.ansible }}-${{ matrix.target }}-arm64
           outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64.tar
           tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}
 
@@ -90,6 +94,8 @@ jobs:
             ANSIBLE_VERSION=${{ matrix.versions.ansible }}
             BASE_IMAGE=ghcr.io/spacelift-io/alpine-fips:python-latest
           platforms: linux/amd64
+          cache-from: type=gha,scope=${{ matrix.versions.ansible }}-${{ matrix.target }}-amd64-fips
+          cache-to: type=gha,mode=max,scope=${{ matrix.versions.ansible }}-${{ matrix.target }}-amd64-fips
           outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-fips.tar
           tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}-fips
 
@@ -102,6 +108,8 @@ jobs:
             ANSIBLE_VERSION=${{ matrix.versions.ansible }}
             BASE_IMAGE=ghcr.io/spacelift-io/alpine-fips:python-latest
           platforms: linux/arm64
+          cache-from: type=gha,scope=${{ matrix.versions.ansible }}-${{ matrix.target }}-arm64-fips
+          cache-to: type=gha,mode=max,scope=${{ matrix.versions.ansible }}-${{ matrix.target }}-arm64-fips
           outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-fips.tar
           tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}-fips
 
