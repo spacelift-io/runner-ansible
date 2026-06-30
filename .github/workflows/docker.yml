@@ -182,6 +182,7 @@ jobs:
         if: matrix.target == 'aws'
         run: |
           docker run --rm ${{ env.IMAGE }} sh -c "python3 -c \"import boto3; print(boto3.__version__)\""
+          docker run --rm ${{ env.IMAGE }} session-manager-plugin --version
 
       - name: Test gcp flavor
         if: matrix.target == 'gcp'
@@ -238,6 +239,7 @@ jobs:
         if: matrix.target == 'aws'
         run: |
           docker run --rm ${{ env.IMAGE }} sh -c "python3 -c \"import boto3; print(boto3.__version__)\""
+          docker run --rm ${{ env.IMAGE }} session-manager-plugin --version
 
       - name: Test gcp flavor
         if: matrix.target == 'gcp'
