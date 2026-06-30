@@ -32,8 +32,23 @@ RUN pip install --no-cache-dir requests==2.* google-auth==2.* && \
     spaceforge --version
 USER spacelift
 
+FROM alpine AS ssm-builder
+ARG TARGETARCH
+RUN apk add --no-cache dpkg curl && \
+    if [ "$TARGETARCH" = "arm64" ]; then \
+      curl -sL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_arm64/session-manager-plugin.deb" -o session-manager-plugin.deb; \
+    else \
+      curl -sL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o session-manager-plugin.deb; \
+    fi && \
+    dpkg -x session-manager-plugin.deb /ssm
+
 FROM ansible AS aws
-RUN pip install --no-cache-dir boto3==1.* &&\
+ARG TARGETARCH
+COPY --from=ssm-builder /ssm/usr/local/sessionmanagerplugin/bin/session-manager-plugin /usr/local/bin/
+RUN chmod +x /usr/local/bin/session-manager-plugin && \
+    # session-manager-plugin requires gcompat on amd64
+    if [ "$TARGETARCH" = "amd64" ]; then apk add --no-cache gcompat; fi && \
+    pip install --no-cache-dir boto3==1.* &&\
     /build/install-collection.sh 'amazon.aws:>=9.2.0,<10.0.0' && \
     spaceforge --version
 USER spacelift

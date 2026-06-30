@@ -76,8 +76,8 @@ jobs:
           ECR_IMAGE: ${{ secrets.PUBLIC_RUNNER_ANSIBLE_ECR_REPOSITORY_URL }}
           TARGET_TAG: -${{ matrix.target }}${{ inputs.target_tag_postfix }}
         run: |
-          if [[ "${TARGET_TAG}" == "-base" ]]; then
-            TARGET_TAG=""${{ inputs.target_tag_postfix }}
+          if [[ "${{ matrix.target }}" == "base" ]]; then
+            TARGET_TAG="${{ inputs.target_tag_postfix }}"
           fi
 
           # Push ECR amd64 tag
@@ -95,7 +95,7 @@ jobs:
           ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}${{ inputs.target_tag_postfix }}\
             ${{ env.ECR_IMAGE }}:${{ matrix.versions.ansible }}${TARGET_TAG}-linux-arm64
 
-          # Push ECR amd64 additional tags
+          # Push ECR arm64 additional tags
           for tag in ${{ join(matrix.versions.additional_tags, ' ') }}
           do
             ./retag-and-push.sh ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}${{ inputs.target_tag_postfix }}\
