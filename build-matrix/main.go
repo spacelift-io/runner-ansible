@@ -18,6 +18,38 @@ const (
 	maxSupportedMinor = 5
 )
 
+// amazonAWSVersions maps an ansible major to the amazon.aws requirement the aws image installs.
+//
+// A galaxy install writes into ANSIBLE_COLLECTIONS_PATH, which takes precedence over the copy
+// bundled in the ansible package, and ansible-galaxy does not check the ansible-core that a
+// collection asks for. A wrong pair therefore reaches users instead of failing the build.
+//
+// Each ansible major maps to the amazon.aws major that suits its ansible-core, as an open range
+// inside that major. Below 12 the bundled collection is older than the range, so the install runs
+// and the collection lands in ANSIBLE_COLLECTIONS_PATH. From 12 on, every minor already bundles a
+// collection inside the range, so the install finds nothing to do and the bundled copy stays. Keep
+// the ranges open: ansible only moves a bundled collection forward inside its major, and an exact
+// version would start shadowing the newer bundled copy as soon as it did.
+//
+// Ansible 11 is the one entry that installs past what ansible ships. It bundles amazon.aws 9.5.2,
+// and 9.5.2 fails on the ansible-core 2.18.19 of the same release: the aws_ec2 inventory plugin
+// raises a KeyError on 'version' while it resolves its options, so no inventory is parsed. There is
+// no newer 9.x, so the range has to move to 10.
+//
+// An ansible major that is missing here gets an empty requirement, and the aws build then fails and
+// asks for a new entry. Ansible 7 never installs anything, its entry only keeps the map total.
+// See scripts/install-collection.sh.
+var amazonAWSVersions = map[uint64]string{
+	7:  "amazon.aws:>=9.0.0,<10.0.0",
+	8:  "amazon.aws:>=9.0.0,<10.0.0",
+	9:  "amazon.aws:>=9.0.0,<10.0.0",
+	10: "amazon.aws:>=9.0.0,<10.0.0",
+	11: "amazon.aws:>=10.0.0,<11.0.0",
+	12: "amazon.aws:>=10.0.0,<11.0.0",
+	13: "amazon.aws:>=10.0.0,<11.0.0",
+	14: "amazon.aws:>=11.0.0,<12.0.0",
+}
+
 type ReleaseResponse struct {
 	Releases map[string]any `json:"releases"`
 }
@@ -25,6 +57,7 @@ type ReleaseResponse struct {
 type matrixVersion struct {
 	Ansible        string   `json:"ansible"`
 	AdditionalTags []string `json:"additional_tags"`
+	AmazonAWS      string   `json:"amazon_aws"`
 }
 type Matrix []matrixVersion
 
@@ -116,6 +149,7 @@ func GenerateBuildMatrix(reader io.Reader, minSupportedMajor uint64) Matrix {
 			matrix = append(matrix, matrixVersion{
 				Ansible:        key,
 				AdditionalTags: additionalTags,
+				AmazonAWS:      amazonAWSVersions[version.Major()],
 			})
 		}
 	}

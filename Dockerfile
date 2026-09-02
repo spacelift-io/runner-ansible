@@ -44,12 +44,21 @@ RUN apk add --no-cache dpkg curl && \
 
 FROM ansible AS aws
 ARG TARGETARCH
+# The amazon.aws requirement for this ansible version. build-matrix/main.go maps it per ansible
+# major and the build workflow passes it here.
+ARG AMAZON_AWS_REQUIREMENT
 COPY --from=ssm-builder /ssm/usr/local/sessionmanagerplugin/bin/session-manager-plugin /usr/local/bin/
 RUN chmod +x /usr/local/bin/session-manager-plugin && \
     # session-manager-plugin requires gcompat on amd64
     if [ "$TARGETARCH" = "amd64" ]; then apk add --no-cache gcompat; fi && \
     pip install --no-cache-dir boto3==1.* &&\
-    /build/install-collection.sh 'amazon.aws:>=9.2.0,<10.0.0' && \
+    # An ansible major with no entry in the map arrives empty. Fail the build then, rather than
+    # ship a collection and an ansible-core that nobody has tested together.
+    if [ -z "${AMAZON_AWS_REQUIREMENT}" ]; then \
+      echo "No amazon.aws requirement for ansible ${ANSIBLE_VERSION}. Add the major to amazonAWSVersions in build-matrix/main.go." >&2; \
+      exit 1; \
+    fi && \
+    /build/install-collection.sh "${AMAZON_AWS_REQUIREMENT}" && \
     spaceforge --version
 USER spacelift
 
