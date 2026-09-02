@@ -77,7 +77,7 @@ func TestGenerateBuildMatrix_AmazonAWS(t *testing.T) {
 			"10.7.0": struct{}{},
 			"13.8.0": struct{}{},
 			"14.3.1": struct{}{},
-			// A major nobody has mapped yet. It must come out empty, which fails the aws build.
+			// A major nobody has mapped yet. It comes out empty, and validateMatrix rejects it.
 			"15.0.0": struct{}{},
 		},
 	}
@@ -100,12 +100,36 @@ func TestGenerateBuildMatrix_AmazonAWS(t *testing.T) {
 		require.True(t, found, "unexpected ansible version %s in the matrix", version.Ansible)
 		assert.Equal(t, expected, version.AmazonAWS, "amazon.aws requirement of ansible %s", version.Ansible)
 	}
+
+	assert.Error(t, validateMatrix(matrix), "an unmapped ansible major must fail the matrix job")
 }
 
-// TestAmazonAWSVersionsCoverSupportedMajors fails when someone raises minSupportedMajor or a new
-// ansible major appears without an entry in the map.
+// TestAmazonAWSVersionsCoverSupportedMajors checks that the map holds an entry for every ansible
+// major from minSupportedMajor up to the newest major the map knows, with no gap in between.
+// A unit test cannot see a new ansible release. A major that appears upstream is caught by
+// validateMatrix instead, which fails the matrix job.
 func TestAmazonAWSVersionsCoverSupportedMajors(t *testing.T) {
-	for major := uint64(minSupportedMajor); major <= 14; major++ {
+	var newestMajor uint64
+	for major := range amazonAWSVersions {
+		if major > newestMajor {
+			newestMajor = major
+		}
+	}
+	require.Greater(t, newestMajor, uint64(minSupportedMajor), "the map must cover more than one ansible major")
+
+	for major := uint64(minSupportedMajor); major <= newestMajor; major++ {
 		assert.NotEmpty(t, amazonAWSVersions[major], "ansible %d has no amazon.aws requirement", major)
 	}
+}
+
+func TestValidateMatrix(t *testing.T) {
+	complete := Matrix{{Ansible: "14.3", AmazonAWS: amazonAWSVersions[14]}}
+	assert.NoError(t, validateMatrix(complete))
+
+	// An ansible major nobody has mapped yet reaches the matrix with an empty requirement.
+	unmapped := Matrix{{Ansible: "15.0", AmazonAWS: ""}}
+	err := validateMatrix(unmapped)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "15.0")
+	assert.Contains(t, err.Error(), "amazonAWSVersions")
 }
