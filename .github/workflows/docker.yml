@@ -271,3 +271,28 @@ jobs:
       matrix: ${{ needs.matrix.outputs.matrix }}
       target_tag_postfix: '-fips'
     secrets: inherit
+
+  notify-failure:
+    name: Notify workflow failure
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    needs: [ matrix, build, test, test-fips, deploy, deploy-fips ]
+    # Only alert for main and for the Sunday rebuild. A red branch build is the author's to see.
+    if: ${{ always() && github.ref == 'refs/heads/main' && contains(needs.*.result, 'failure') }}
+    steps:
+      - name: Collect failed jobs
+        id: failed-jobs
+        run: |
+          failed_jobs=$(echo '${{ toJSON(needs) }}' | jq -r '[to_entries[] | select(.value.result == "failure") | .key] | join(", ")')
+          echo "message=GitHub workflow is failing on ${{ github.repository }} - failed jobs: ${failed_jobs} 🚨" >> $GITHUB_OUTPUT
+
+      - name: Notify workflow failure
+        uses: spacelift-io/public-shared-actions/actions/notify-workflow-failure@main
+        with:
+          github_token: ${{ github.token }}
+          slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+          slack_channel_id: ${{ secrets.SLACK_CHANNEL_ID }}
+          header_message: ${{ steps.failed-jobs.outputs.message }}
+          workflow_name: ${{ github.workflow }}
