@@ -35,31 +35,101 @@ func TestGenerateBuildMatrix(t *testing.T) {
 		{
 			Ansible:        "3.6",
 			AdditionalTags: []string{"3", "latest"},
+			AmazonAWS:      "",
 		},
 		{
 			Ansible:        "3.5",
 			AdditionalTags: []string{},
+			AmazonAWS:      "",
 		},
 		{
 			Ansible:        "3.4",
 			AdditionalTags: []string{},
+			AmazonAWS:      "",
 		},
 		{
 			Ansible:        "3.3",
 			AdditionalTags: []string{},
+			AmazonAWS:      "",
 		},
 		{
 			Ansible:        "3.2",
 			AdditionalTags: []string{},
+			AmazonAWS:      "",
 		},
 		{
 			Ansible:        "2.11",
 			AdditionalTags: []string{"2"},
+			AmazonAWS:      "",
 		},
 		{
 			Ansible:        "2.10",
 			AdditionalTags: []string{},
+			AmazonAWS:      "",
 		},
 	}
 	assert.Equal(t, expectedMatrix, matrix)
+}
+
+func TestGenerateBuildMatrix_AmazonAWS(t *testing.T) {
+	fakePythonVersions := ReleaseResponse{
+		Releases: map[string]any{
+			"10.7.0": struct{}{},
+			"13.8.0": struct{}{},
+			"14.3.1": struct{}{},
+			// A major nobody has mapped yet. It comes out empty, and validateMatrix rejects it.
+			"15.0.0": struct{}{},
+		},
+	}
+
+	fakeJsonResponse, err := json.Marshal(fakePythonVersions)
+	require.NoError(t, err)
+
+	matrix := GenerateBuildMatrix(bytes.NewReader(fakeJsonResponse), 10)
+
+	expectedRequirements := map[string]string{
+		"10.7": amazonAWSVersions[10],
+		"13.8": amazonAWSVersions[13],
+		"14.3": amazonAWSVersions[14],
+		"15.0": "",
+	}
+
+	require.Len(t, matrix, len(expectedRequirements))
+	for _, version := range matrix {
+		expected, found := expectedRequirements[version.Ansible]
+		require.True(t, found, "unexpected ansible version %s in the matrix", version.Ansible)
+		assert.Equal(t, expected, version.AmazonAWS, "amazon.aws requirement of ansible %s", version.Ansible)
+	}
+
+	assert.Error(t, validateMatrix(matrix), "an unmapped ansible major must fail the matrix job")
+}
+
+// TestAmazonAWSVersionsCoverSupportedMajors checks that the map holds an entry for every ansible
+// major from minSupportedMajor up to the newest major the map knows, with no gap in between.
+// A unit test cannot see a new ansible release. A major that appears upstream is caught by
+// validateMatrix instead, which fails the matrix job.
+func TestAmazonAWSVersionsCoverSupportedMajors(t *testing.T) {
+	var newestMajor uint64
+	for major := range amazonAWSVersions {
+		if major > newestMajor {
+			newestMajor = major
+		}
+	}
+	require.Greater(t, newestMajor, uint64(minSupportedMajor), "the map must cover more than one ansible major")
+
+	for major := uint64(minSupportedMajor); major <= newestMajor; major++ {
+		assert.NotEmpty(t, amazonAWSVersions[major], "ansible %d has no amazon.aws requirement", major)
+	}
+}
+
+func TestValidateMatrix(t *testing.T) {
+	complete := Matrix{{Ansible: "14.3", AmazonAWS: amazonAWSVersions[14]}}
+	assert.NoError(t, validateMatrix(complete))
+
+	// An ansible major nobody has mapped yet reaches the matrix with an empty requirement.
+	unmapped := Matrix{{Ansible: "15.0", AmazonAWS: ""}}
+	err := validateMatrix(unmapped)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "15.0")
+	assert.Contains(t, err.Error(), "amazonAWSVersions")
 }

@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"sort"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 )
@@ -18,6 +19,21 @@ const (
 	maxSupportedMinor = 5
 )
 
+// amazonAWSVersions maps an Ansible major to the amazon.aws major that suits its ansible-core.
+// Every ansible release bundles a copy of amazon.aws, and each range here holds the major that
+// its ansible bundles. It's a defensible check, because of aws conflicts we've 
+// experienced in the past
+var amazonAWSVersions = map[uint64]string{
+	7:  "amazon.aws:>=9.0.0,<10.0.0",
+	8:  "amazon.aws:>=9.0.0,<10.0.0",
+	9:  "amazon.aws:>=9.0.0,<10.0.0",
+	10: "amazon.aws:>=9.0.0,<10.0.0",
+	11: "amazon.aws:>=10.0.0,<11.0.0",
+	12: "amazon.aws:>=10.0.0,<11.0.0",
+	13: "amazon.aws:>=10.0.0,<11.0.0",
+	14: "amazon.aws:>=11.0.0,<12.0.0",
+}
+
 type ReleaseResponse struct {
 	Releases map[string]any `json:"releases"`
 }
@@ -25,6 +41,7 @@ type ReleaseResponse struct {
 type matrixVersion struct {
 	Ansible        string   `json:"ansible"`
 	AdditionalTags []string `json:"additional_tags"`
+	AmazonAWS      string   `json:"amazon_aws"`
 }
 type Matrix []matrixVersion
 
@@ -49,11 +66,31 @@ func main() {
 	}
 
 	matrixOutput := GenerateBuildMatrix(resp.Body, minSupportedMajor)
+	if err := validateMatrix(matrixOutput); err != nil {
+		log.Fatal(err)
+	}
+
 	output, err := json.Marshal(matrixOutput)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Print(string(output))
+}
+
+// validateMatrix rejects a matrix that holds an ansible version with no amazon.aws requirement.
+func validateMatrix(matrix Matrix) error {
+	var missing []string
+	for _, version := range matrix {
+		if version.AmazonAWS == "" {
+			missing = append(missing, version.Ansible)
+		}
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("no amazon.aws requirement for ansible %s, add the major to amazonAWSVersions", strings.Join(missing, ", "))
+	}
+
+	return nil
 }
 
 func GenerateBuildMatrix(reader io.Reader, minSupportedMajor uint64) Matrix {
@@ -116,6 +153,7 @@ func GenerateBuildMatrix(reader io.Reader, minSupportedMajor uint64) Matrix {
 			matrix = append(matrix, matrixVersion{
 				Ansible:        key,
 				AdditionalTags: additionalTags,
+				AmazonAWS:      amazonAWSVersions[version.Major()],
 			})
 		}
 	}

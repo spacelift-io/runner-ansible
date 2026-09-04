@@ -66,6 +66,7 @@ jobs:
           target: ${{ matrix.target }}
           build-args: |
             ANSIBLE_VERSION=${{ matrix.versions.ansible }}
+            AMAZON_AWS_REQUIREMENT=${{ matrix.versions.amazon_aws }}
           platforms: linux/amd64
           outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64.tar
           tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-${{ github.sha }}
@@ -77,6 +78,7 @@ jobs:
           target: ${{ matrix.target }}
           build-args: |
             ANSIBLE_VERSION=${{ matrix.versions.ansible }}
+            AMAZON_AWS_REQUIREMENT=${{ matrix.versions.amazon_aws }}
           platforms: linux/arm64
           outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64.tar
           tags: ghcr.io/${{ github.repository }}:${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-${{ github.sha }}
@@ -88,6 +90,7 @@ jobs:
           target: ${{ matrix.target }}
           build-args: |
             ANSIBLE_VERSION=${{ matrix.versions.ansible }}
+            AMAZON_AWS_REQUIREMENT=${{ matrix.versions.amazon_aws }}
             BASE_IMAGE=ghcr.io/spacelift-io/alpine-fips:python-latest
           platforms: linux/amd64
           outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-amd64-fips.tar
@@ -100,6 +103,7 @@ jobs:
           target: ${{ matrix.target }}
           build-args: |
             ANSIBLE_VERSION=${{ matrix.versions.ansible }}
+            AMAZON_AWS_REQUIREMENT=${{ matrix.versions.amazon_aws }}
             BASE_IMAGE=ghcr.io/spacelift-io/alpine-fips:python-latest
           platforms: linux/arm64
           outputs: type=docker,dest=/tmp/${{ matrix.versions.ansible }}-${{ matrix.target }}-linux-arm64-fips.tar

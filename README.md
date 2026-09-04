@@ -72,6 +72,15 @@ is `abc123`, you would use the following command to build the image:
 docker build -t abc123/runner-ansible:latest .
 ```
 
+To build the `aws` flavor you also need the `amazon.aws` requirement, because the build fails
+without it. `build-matrix/main.go` maps it per ansible major, and `go run ./` in `build-matrix`
+prints the value for every version:
+
+```shell
+docker build --target aws --build-arg ANSIBLE_VERSION=14.3 \
+  --build-arg AMAZON_AWS_REQUIREMENT='amazon.aws:>=11.0.0,<12.0.0' -t abc123/runner-ansible:14.3-aws .
+```
+
 Once the build has completed, push your changes:
 
 ```shell
